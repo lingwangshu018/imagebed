@@ -122,13 +122,13 @@ function fileExtension(name){const match=name.toLowerCase().match(/\.([a-z0-9]+)
 function add(arr){
   arr.forEach(file=>{
     const ext=fileExtension(file.name);
-    const isFont=!!FONT_TYPES[ext];
+    const isFont=!!FONT_TYPES[ext]||['ttf','otf','woff','woff2','eot','svg'].includes(ext);
     const isAudio=AUDIO_EXTS.includes(ext)||file.type.startsWith('audio/');
     const isImage=file.type.startsWith('image/');
     const kind=isFont?'font':isAudio?'audio':isImage?'image':'';
     if(!kind)return;
     const statusText=kind==='image'?'待转换':kind==='font'?'字体待就绪':'音频待就绪';
-    state.push({file,kind,ext,fontExt:isFont?ext:'',preview:isImage?URL.createObjectURL(file):'',blob:null,outName:'',path:'',links:null,status:statusText,statusClass:'',uploaded:false,commit:''});
+    state.push({file,kind,ext,fontExt:ext,preview:isImage?URL.createObjectURL(file):'',blob:null,outName:'',path:'',links:null,status:statusText,statusClass:'',uploaded:false,commit:''});
   });
   render();
 }
@@ -217,7 +217,8 @@ function render(){
   state.forEach((x,i)=>{
     const el=document.createElement('article');el.className=`item${['font','audio'].includes(x.kind)?' font-item':''}`;
     if(x.kind==='font'){
-      el.innerHTML=x.links?`${fontResult(x,'current',i)}<div class="copy-actions">${copyButtons(x,'data-copy',i)}</div><div class="meta">${esc(x.file.name)} · ${bytes(x.file.size)} · ${esc(x.path)}</div><div class="status ${x.statusClass}">${esc(x.status)}</div>`:`<div class="font-result"><div class="name">${esc(x.file.name)}</div><div class="meta">${bytes(x.file.size)} · 字体将上传到 ${esc(FONT_TYPES[x.fontExt].folder)}</div><div class="status ${x.statusClass}">${esc(x.status)}</div></div>`;
+      const fontFolder=FONT_TYPES[x.fontExt]?.folder||`front/${x.fontExt||'ttf'}`;
+      el.innerHTML=x.links?`${fontResult(x,'current',i)}<div class="copy-actions">${copyButtons(x,'data-copy',i)}</div><div class="meta">${esc(x.file.name)} · ${bytes(x.file.size)} · ${esc(x.path)}</div><div class="status ${x.statusClass}">${esc(x.status)}</div>`:`<div class="font-result"><div class="name">${esc(x.file.name)}</div><div class="meta">${bytes(x.file.size)} · 字体将上传到 ${esc(fontFolder)}</div><div class="status ${x.statusClass}">${esc(x.status)}</div></div>`;
     }else if(x.kind==='audio'){
       const links=x.links?`<div class="links"><div class="link-row"><span class="link-label">主链接</span><span class="url">${esc(x.links.main)}</span><button class="copy" data-copy="main" data-i="${i}">复制</button></div>${x.links.stable?`<div class="link-row"><span class="link-label">稳定链接</span><span class="url">${esc(x.links.stable)}</span><button class="copy" data-copy="stable" data-i="${i}">复制</button></div>`:''}<div class="link-row"><span class="link-label">Raw 备用</span><span class="url">${esc(x.links.raw)}</span><button class="copy" data-copy="raw" data-i="${i}">复制</button></div><div class="link-row"><span class="link-label">Pages 备用</span><span class="url">${esc(x.links.pages)}</span><button class="copy" data-copy="pages" data-i="${i}">复制</button></div><div class="copy-actions">${copyButtons(x,'data-copy',i)}</div></div>`:'';
       el.innerHTML=`<div class="name">${esc(x.file.name)}</div>${audioResult(x,'current',i)}<div class="meta">${bytes(x.file.size)}${x.blob?` → ${esc(x.outName)}`:''} · 音频将上传到 audio/</div>${links}<div class="status ${x.statusClass}">${esc(x.status)}</div>`;
@@ -248,8 +249,10 @@ async function convertOne(x,index){
 }
 async function prepareFont(x,index){
   if(x.file.size>MAX_UPLOAD)throw Error(`字体文件超过 ${bytes(MAX_UPLOAD)}`);
-  const mode=$('rename').value,base=mode==='unique'?uniqueBase(x.file,index):mode==='safe'?asciiSafe(x.file.name):keptBase(x.file.name),config=FONT_TYPES[x.fontExt];
-  x.blob=x.file;x.outName=`${base}.${x.fontExt}`;x.path=`${config.folder}/${x.outName}`;x.links=publicLinks(x.path);if(!x.localFontUrl)x.localFontUrl=URL.createObjectURL(x.file);x.status='字体已就绪';x.statusClass='';x.uploaded=false;x.commit='';
+  const mode=$('rename').value,base=mode==='unique'?uniqueBase(x.file,index):mode==='safe'?asciiSafe(x.file.name):keptBase(x.file.name);
+  const ext=x.fontExt||fileExtension(x.file.name)||'ttf';
+  const folder=FONT_TYPES[ext]?.folder||`front/${ext}`;
+  x.blob=x.file;x.outName=`${base}.${ext}`;x.path=`${folder}/${x.outName}`;x.links=publicLinks(x.path);if(!x.localFontUrl)x.localFontUrl=URL.createObjectURL(x.file);x.status='字体已就绪';x.statusClass='';x.uploaded=false;x.commit='';
 }
 async function prepareAudio(x,index){
   if(x.file.size>MAX_UPLOAD)throw Error(`音频文件超过 ${bytes(MAX_UPLOAD)}`);
